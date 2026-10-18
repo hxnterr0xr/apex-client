@@ -1,0 +1,36 @@
+name: Build Apex
+on: { push: { tags: ['v*'] }, workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults: { run: { shell: bash, working-directory: apex } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build HUD mod
+        run: |
+          cd apex-hud && gradle build && cp build/libs/apex-hud-1.20.1-1.0.0.jar ../apex-client/bundled/apex-hud-1.20.1.jar
+          cd ../apex-hud-1.21.11 && gradle build && cp build/libs/apex-hud-1.21.11-1.0.0.jar ../apex-client/bundled/apex-hud-1.21.11.jar
+      - name: Build launcher
+        run: cd apex-client && npm install && npm run dist
+      - name: Build downloader
+        run: cd apex-downloader && npm install && npm run dist
+      - name: Make latest.json
+        run: |
+          F=apex-client/dist/ApexClient-Setup.exe
+          V=$(node -p "require('./apex-client/package.json').version")
+          H=$(sha256sum "$F" | cut -d' ' -f1)
+          echo "{\"version\":\"$V\",\"url\":\"https://github.com/${{ github.repository }}/releases/latest/download/ApexClient-Setup.exe\",\"sha256\":\"$H\"}" > latest.json
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          files: |
+            apex/apex-client/dist/ApexClient-Setup.exe
+            apex/apex-downloader/dist/ApexDownloader.exe
+            apex/latest.json
