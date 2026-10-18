@@ -10,13 +10,19 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: '8.14.3' }
+        with: { gradle-version: '9.2.1' }
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - name: Build HUD mod
+      - name: Build HUD mod 1.20.1
         run: |
-          cd apex-hud && gradle build && cp build/libs/apex-hud-1.20.1-1.0.0.jar ../apex-client/bundled/apex-hud-1.20.1.jar
-          cd ../apex-hud-1.21.11 && gradle build && cp build/libs/apex-hud-1.21.11-1.0.0.jar ../apex-client/bundled/apex-hud-1.21.11.jar
+          cd apex-hud
+          gradle build
+          cp build/libs/apex-hud-1.20.1-1.0.0.jar ../apex-client/bundled/apex-hud-1.20.1.jar
+      - name: Build HUD mod 1.21.11
+        run: |
+          cd apex-hud-1.21.11
+          gradle build
+          cp build/libs/apex-hud-1.21.11-1.0.0.jar ../apex-client/bundled/apex-hud-1.21.11.jar
       - name: Build launcher
         run: cd apex-client && npm install && npm run dist
       - name: Build downloader
