@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, safeStorage } = require('electron');
 const path = require('path'), fs = require('fs');
 const { Client } = require('minecraft-launcher-core');
 const { Auth } = require('msmc');
@@ -17,12 +17,21 @@ app.whenReady().then(() => {
 ipcMain.on('win', (_, a) => a === 'min' ? win.minimize() : app.quit());
 
 // Microsoft login (official account required, no offline/cracked mode)
-ipcMain.handle('login', async () => {
-  const x = await new Auth('select_account').launch('electron');
-  const mc = await x.getMinecraft();
-  session = mc.mclc();
+// Remembered sign-in: the refresh token is encrypted with Windows' own protection and kept on this PC only
+const TOKEN = () => path.join(app.getPath('userData'), 'account.bin');
+const saveToken = t => { try { if (safeStorage.isEncryptionAvailable()) fs.writeFileSync(TOKEN(), safeStorage.encryptString(t)); } catch {} };
+const readToken = () => { try { return safeStorage.decryptString(fs.readFileSync(TOKEN())); } catch { return null; } };
+async function useAccount(x) {
+  const mc = await x.getMinecraft(); session = mc.mclc();
+  saveToken(x.save());
   return { name: mc.profile.name, id: mc.profile.id };
+}
+ipcMain.handle('login', async () => useAccount(await new Auth('select_account').launch('electron')));
+ipcMain.handle('autologin', async () => {
+  const t = readToken(); if (!t) return null;
+  try { return await useAccount(await new Auth('select_account').refresh(t)); } catch { return null; }
 });
+ipcMain.handle('logout', () => { session = null; try { fs.unlinkSync(TOKEN()); } catch {} });
 
 // Modrinth search: kind = mod | resourcepack | shader
 ipcMain.handle('search', async (_, { query, kind, version, loader }) => {
@@ -105,6 +114,8 @@ async function ensureJava(id) {
 }
 
 ipcMain.handle('launch', async (_, { version, loader, ram }) => {
+  const saved = readToken();  // keep the game session fresh if the launcher stayed open for hours
+  if (saved) { try { await useAccount(await new Auth('select_account').refresh(saved)); } catch {} }
   if (!session) throw new Error('Sign in first');
   const v = { number: version, type: 'release' };
   win.webContents.send('notice', 'Getting Java ready (first launch of this version is slower)…');
@@ -113,9 +124,19 @@ ipcMain.handle('launch', async (_, { version, loader, ram }) => {
     try { v.custom = await ensureFabric(version); await installExtras(version); }
     catch (e) { win.webContents.send('notice', `Fabric isn't available for ${version} yet, launching vanilla instead.`); }
   }
+  fs.mkdirSync(ROOT, { recursive: true });
+  const logFile = path.join(ROOT, 'launcher.log');
+  fs.writeFileSync(logFile, `Apex Client launch: ${version} (${loader})\nJava: ${javaPath}\n`);
+  const log = m => fs.appendFileSync(logFile, String(m).trimEnd() + '\n');
   const l = new Client();
   l.on('progress', p => win.webContents.send('progress', p));
-  l.on('close', () => win.webContents.send('closed'));
-  l.launch({ authorization: session, root: ROOT, javaPath, version: v, memory: { max: ram + 'G', min: '1G' },
-    overrides: { gameDirectory: inst(version) } });
+  l.on('debug', log); l.on('data', log);
+  l.on('close', code => { log('Game closed with code ' + code); win.webContents.send('closed', code); });
+  try {
+    const proc = await l.launch({ authorization: session, root: ROOT, javaPath, version: v, memory: { max: ram + 'G', min: '1G' },
+      overrides: { gameDirectory: inst(version) } });
+    if (!proc) throw new Error('Minecraft could not start. Press Logs for details.');
+  } catch (e) { log(e.stack || e); throw e; }
 });
+
+ipcMain.handle('openlog', () => shell.openPath(path.join(ROOT, 'launcher.log')));

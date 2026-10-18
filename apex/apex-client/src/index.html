@@ -77,7 +77,11 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   tab=b.dataset.t;$('#home').classList.toggle('on',tab==='home');$('#browse').classList.toggle('on',tab!=='home');
   if(tab==='home')setTimeout(()=>$('#scene').style.display!=='none'&&scene(),0);else{$('#bt').textContent=names[tab];search()}
 });
-$('#login').onclick=async()=>{try{const u=await api.login();$('#user').textContent=u.name;$('#login').style.display='none'}catch(e){toast('Sign-in failed: '+e.message)}};
+const signedIn=u=>{$('#user').textContent=u.name;$('#login').textContent='Sign out'};
+$('#login').onclick=async()=>{
+  if($('#login').textContent==='Sign out'){await api.logout();$('#user').textContent='Not signed in';$('#login').textContent='Sign in';return}
+  try{signedIn(await api.login())}catch(e){toast('Sign-in failed: '+e.message)}};
+api.autologin().then(u=>u&&signedIn(u));
 $('#play').onclick=async()=>{$('#play').disabled=true;try{await api.launch(cfg())}catch(e){toast(e.message);$('#play').disabled=false}};
 api.on('progress',p=>$('#prog i').style.width=(p.task/p.total*100)+'%');
 api.on('closed',c=>{$('#play').disabled=false;$('#prog i').style.width=0;if(c)toast('Game stopped (code '+c+'). Press Logs to see why.')});
