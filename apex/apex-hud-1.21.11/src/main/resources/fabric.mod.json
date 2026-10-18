@@ -1,0 +1,4 @@
+{ "schemaVersion": 1, "id": "apexhud", "version": "1.0.0", "name": "Apex HUD",
+  "description": "FPS, CPS, keystrokes and coordinates for Apex Client.", "environment": "client",
+  "entrypoints": { "client": ["gg.apex.hud.ApexHud"] },
+  "depends": { "fabricloader": ">=0.18.0", "minecraft": "1.21.11", "java": ">=21", "fabric-api": "*" } }

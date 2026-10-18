@@ -1,0 +1,41 @@
+{
+  "name": "apex-client",
+  "version": "0.1.0",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "productName": "Apex Client",
+  "description": "Apex Client launcher",
+  "build": {
+    "appId": "gg.apex.client",
+    "productName": "Apex Client",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "ApexClient-Setup.${ext}"
+    },
+    "extraResources": [
+      {
+        "from": "bundled",
+        "to": "bundled"
+      }
+    ]
+  }
+}
